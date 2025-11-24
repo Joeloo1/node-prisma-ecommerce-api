@@ -1,12 +1,33 @@
 import { Request, Response, NextFunction } from "express";
-import { ZodObject, ZodError, } from "zod"
+import { ZodObject, ZodError, ZodSchema } from "zod"
 import AppError from "../utils/AppError";
 
+interface ValidationSchemas {
+    body?: ZodSchema;
+    params?: ZodSchema;
+    query?: ZodSchema;
+}
 
-export const validate = (Schema: ZodObject<any>) => {
+export const validate = (Schemas: ValidationSchemas) => {
     return async (req: Request, res: Response, next: NextFunction) => {
         try {
-           await Schema.parseAsync(req.body);
+          // Validate body if schema provided
+             // Validate body if schema provided
+            if (Schemas.body) {
+                req.body = await Schemas.body.parseAsync(req.body);
+            }
+
+            // Validate params if schema provided
+            if (Schemas.params) {
+                const validatedParams = await Schemas.params.parseAsync(req.params);
+                req.params = validatedParams as any;
+            }
+
+            // Validate query if schema provided
+            if (Schemas.query) {
+                const validatedQuery = await Schemas.query.parseAsync(req.query);
+                req.query = validatedQuery as any;
+            }
         // if validation pass call next: (continue)
         next()
         }catch (error) {
@@ -24,3 +45,18 @@ export const validate = (Schema: ZodObject<any>) => {
         }
     }
 }
+
+// Helper function for body-only validation 
+export const validateBody = (schema: ZodObject<any>) => {
+    return validate({ body: schema });
+};
+
+// Helper function for params-only validation
+export const validateParams = (schema: ZodObject<any>) => {
+    return validate({ params: schema });
+};
+
+// Helper function for query-only validation
+export const validateQuery = (schema: ZodObject<any>) => {
+    return validate({ query: schema });
+};
