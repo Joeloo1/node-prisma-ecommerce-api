@@ -2,6 +2,7 @@ import express, { NextFunction, Request , Response}  from "express";
 import morgan from "morgan";
 
 import productRoutes from "./Routes/productRoutes"
+import categoryRoutes from "./Routes/categoriesRoute";
 import AppError from "./utils/AppError";
 
 const app = express()
@@ -10,7 +11,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json())
 app.use(morgan('dev'))
 
-app.use('/api/v1/products', productRoutes)
+app.use('/api/v1/products', productRoutes);
+app.use('/api/v1/categories', categoryRoutes)
 
 // HANDLING  unhandled Routes 
 app.use( (req: Request, res: Response, next: NextFunction)=> {

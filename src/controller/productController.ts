@@ -13,9 +13,9 @@ export const createProduct = catchAsync(async(req: Request, res: Response, next:
         where: { category_id: data.category_id },
       });
        if (!categoryExists) {
-        return  new AppError(
+        return next(new AppError(
           `Category with ID ${data.category_id} does not exist`, 400
-        );
+        ))
       }
     }
    const product = await prisma.products.create({data,
@@ -29,7 +29,7 @@ export const createProduct = catchAsync(async(req: Request, res: Response, next:
       },
    })
 
-   res.status(200).json({
+   res.status(201).json({
     status: 'Success',
     data: { 
       product
@@ -56,7 +56,6 @@ export const getProduct =  catchAsync( async(req: Request, res: Response, next: 
       where: { product_id: productId },
        include: { categories: {
         select: {
-          category_id: true,
           name: true
         }
       } },
@@ -65,9 +64,54 @@ export const getProduct =  catchAsync( async(req: Request, res: Response, next: 
     if (!product) {
       return next(new AppError('Product not found', 400))
     }
-    
+   
     res.status(200).json({
       status: 'Success',
       data: { product }
+    })
+})
+
+// UPDATE PRODUCT
+export const updateProduct = catchAsync(async(req: Request, res: Response, next: NextFunction) => {
+  const productId = req.params.id
+  const data = req.body; 
+
+  const existingProduct = await prisma.products.findUnique({
+    where: { product_id: productId}
+  })
+
+  if (!existingProduct) {
+    return next( new AppError(`product with ${productId} not found`, 404))
+  }
+
+   if (data.category_id) {
+      const categoryExists = await prisma.categories.findUnique({
+        where: { category_id: data.category_id },
+      });
+         if (!categoryExists) {
+        return next(new AppError(
+          `Category with ID ${data.category_id} does not exist`, 400
+        ))
+      }
+    }
+
+    const product = await prisma.products.update({
+      where: { product_id: productId},
+      data, 
+      include: {
+        categories: {
+          select: {
+            category_id: true,
+            name: true
+          }
+        }
+      }
+    })
+
+    res.status(200).json({
+      status: 'Success',
+      data:{
+        product
+      }
     })
 })

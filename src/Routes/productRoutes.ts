@@ -1,13 +1,14 @@
 import express from "express";
 
-import { createProduct, getAllProducts, getProduct } from "../controller/productController";
-import { validate } from "../middleware/validationMiddleware";
-import { createProductSchema } from "../Schema/productSchema";
+import { createProduct, getAllProducts, getProduct, updateProduct } from "../controller/productController";
+import { validateBody, validateParams } from "../middleware/validationMiddleware";
+import { createProductSchema , productIdSchema} from "../Schema/productSchema";
 
 const router = express.Router()
 
 router.route('/').get(getAllProducts)
-router.route('/').post(validate(createProductSchema), createProduct)
-router.route('/:id').get(getProduct)
+router.route('/').post(validateBody(createProductSchema), createProduct)
+router.route('/:id').get(validateParams(productIdSchema), getProduct)
+router.route('/:id').patch(updateProduct)
 
 export default router
