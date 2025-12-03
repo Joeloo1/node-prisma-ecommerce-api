@@ -10,13 +10,17 @@ import { createProductSchema , productIdSchema, updateProductSchema} from "../Sc
 
 const router = express.Router()
 
-router.route('/').get(getAllProducts);
-router.route('/').post(validateBody(createProductSchema), createProduct);
-router.route('/:id').get(validateParams(productIdSchema), getProduct);
-router.route('/:id').patch(
+router
+    .route('/')
+    .get(getAllProducts)
+    .post(validateBody(createProductSchema), createProduct);
+
+router
+    .route('/:id')
+    .get(validateParams(productIdSchema), getProduct)
+    .patch(
     validateParams(productIdSchema), 
     validateBody(updateProductSchema) , 
-     updateProduct);
-router.route('/:id').delete(validateParams(productIdSchema), deleteProduct)
-
+     updateProduct)
+     .delete(validateParams(productIdSchema), deleteProduct);
 export default router
