@@ -2,11 +2,12 @@ import { Request, Response, NextFunction  } from "express";
 //import { PrismaClient } from "@prisma/client";
 
 import catchAsync from "../utils/catchAsync";
-import { signupSchema } from "../Schema/userSchema";
-import { hashPassword } from "../utils/password";
+import { loginSchema, signupSchema } from "../Schema/userSchema";
+import { hashPassword, comparePassword } from "../utils/password";
 import AppError from "../utils/AppError";
 import { signToken } from "../utils/jwt";
 import { prisma } from "./../config/database"
+import { sign } from "crypto";
 
 //const prisma = new PrismaClient();
 
@@ -52,4 +53,44 @@ export const signup = catchAsync( async (req: Request, res: Response, next: Next
             user: sanitizedUser 
        }
     })
+})
+
+// login  user
+export const login = catchAsync(async(req: Request,res: Response, next: NextFunction) => {
+  const {email, password} = loginSchema.parse(req.body)
+
+  const user = await prisma.user.findUnique({where: { email }})
+
+  if (!user) {
+    return next(new AppError('Incorrect email and password', 401))
+  }
+
+  const isPasswordCorrect = await comparePassword(password, user.password)
+
+  if (!isPasswordCorrect) {
+    return next(new AppError('Incorrect email and password', 401))
+  }
+
+  const token = signToken({ id: user.id}) 
+
+  const sanitizedUser = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      roles: user.roles,
+      phoneNumber: user.phoneNumber,
+      profileImage: user.profileImage,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      isVerified: user.isVerified,
+      active: user.active,
+  }
+
+  res.status(200).json({
+    status: 'success',
+    token,
+    data: {
+      user: sanitizedUser
+    }
+  })
 })
