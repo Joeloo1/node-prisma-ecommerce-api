@@ -3,17 +3,26 @@ import morgan from "morgan";
 
 import productRoutes from "./Routes/productRoutes"
 import categoryRoutes from "./Routes/categoriesRoutes";
+import userRouter from "./Routes/userRoutes"
 import AppError from "./utils/AppError";
 import { globalErrorHandler } from "./Error/globalErrorHandler";
 
 const app = express()
-app.use(express.urlencoded({ extended: true }));
 
 app.use(express.json())
-app.use(morgan('dev'))
+app.use(express.urlencoded({ extended: true }));
 
+// Development logging
+console.log(process.env.NODE_ENV)
+if (process.env.NODE_ENV === 'development') {
+    app.use(morgan('dev'))
+}
+// product Routes
 app.use('/api/v1/products', productRoutes);
-app.use('/api/v1/categories', categoryRoutes)
+// category Routes
+app.use('/api/v1/categories', categoryRoutes);
+// User Routes
+app.use('/api/v1/users', userRouter);
 
 // HANDLING  unhandled Routes 
 app.use( (req: Request, res: Response, next: NextFunction)=> {
