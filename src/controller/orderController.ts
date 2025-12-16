@@ -177,15 +177,62 @@ export const cancelOrder = catchAsync(
       data: {
         status: OrderStatus.CANCELLED,
         cancelledAt: new Date(),
-        cancelledBy: CancelledBy.USER
+        cancelledBy: CancelledBy.USER,
       },
     });
 
     res.status(200).json({
-      status: 'success',
+      status: "success",
       data: {
-        order: cancelledOrder
-      }
-    })
+        order: cancelledOrder,
+      },
+    });
+  }
+);
+
+// Cancel Order (ADMIN)
+export const adminCancelOrder = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const orderId = req.params.id;
+
+    const cancellableStatus: OrderStatus[] = [
+      OrderStatus.PENDING,
+      OrderStatus.PAID,
+      OrderStatus.PROCESSING,
+    ];
+
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+    });
+
+    if (!order) {
+      return next(new AppError("Order not found", 404));
+    }
+
+    if (order.status === OrderStatus.CANCELLED) {
+      return next(new AppError("Order already cancelled", 400));
+    }
+
+    if (!cancellableStatus.includes(order.status)) {
+      return next(new AppError("Order cannot be cancelled at this stage", 400));
+    }
+
+    const cancelledOrder = await prisma.order.update({
+      where: {
+        id: orderId,
+      },
+      data: {
+        status: OrderStatus.CANCELLED,
+        cancelledAt: new Date(),
+        cancelledBy: CancelledBy.ADMIN,
+      },
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: {
+        order: cancelledOrder,
+      },
+    });
   }
 );
