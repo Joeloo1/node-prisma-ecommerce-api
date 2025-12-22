@@ -12,12 +12,13 @@ import reviewsRoutes from "./Routes/User/reviewsRoutes";
 import orderRoutes from "./Routes/User/orderRoutes";
 import cartRoutes from "./Routes/User/cartRoutes";
 
+import logger from "./config/logger";
 import AppError from "./utils/AppError";
 import { globalErrorHandler } from "./Error/globalErrorHandler";
 
 const app = express();
 
-// set seurity HTTP Header 
+// set seurity HTTP Header
 app.use(helmet());
 
 app.use(express.json());
@@ -27,16 +28,32 @@ app.use(express.urlencoded({ extended: true }));
 console.log(process.env.NODE_ENV);
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
-};
+}
 
-// Request Limiting from the same IP 
+// Request Limiting from the same IP
 const Limiter = rateLimit({
   max: 100,
   windowMs: 60 * 60 * 1000,
-  message: 'To many request from this IP, Please try again in an hour'
+  message: "To many request from this IP, Please try again in an hour",
+  handler: (req: Request, res: Response) => {
+    logger.warn("Rate limit exceeded", {
+      ip: req.ip,
+      path: req.path,
+    });
+  },
 });
 
-app.use('/api', Limiter as any);
+app.use("/api", Limiter as any);
+
+// Log all Request
+app.use((req: Request, res: Response, next: NextFunction) => {
+  logger.http("Incoming request...", {
+    method: req.method,
+    path: req.path,
+    ip: req.ip,
+  });
+  next();
+});
 
 // product Routes
 app.use("/api/v1/products", productRoutes);
@@ -56,7 +73,9 @@ app.use("/api/v1/order", orderRoutes);
 
 // HANDLING  unhandled Routes
 app.use((req: Request, res: Response, next: NextFunction) => {
-  return next(new AppError(`Can't find ${req.originalUrl} on this server`, 404));
+  return next(
+    new AppError(`Can't find ${req.originalUrl} on this server`, 404),
+  );
 });
 
 app.use(globalErrorHandler);
