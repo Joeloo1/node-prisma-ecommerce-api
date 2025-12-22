@@ -5,30 +5,151 @@ generator client {
   // url is no longer supported, configure in prisma.config.ts
 datasource db {
   provider = "postgresql"
-    //url = env("DATABASE_URL")
+      url = env("DATABASE_URL")
 }
 
-model categories {
-  category_id Int       @id @default(autoincrement())   
+enum OrderStatus {
+  PENDING
+  PAID
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum CancelledBy {
+  USER
+  ADMIN
+  SYSTEM
+}
+
+
+model Category {
+  category_id Int        @id @default(autoincrement())   
   name        String     @unique @db.VarChar(100)
-  created_at  DateTime?  @default(now()) @db.Timestamp(6)
-  updated_at  DateTime?  @default(now()) @db.Timestamp(6)
-  products    products[]
+  createdAt   DateTime   @default(now()) @db.Timestamp(6)
+  updatedAt   DateTime   @updatedAt @db.Timestamp(6)
+  products    Products[]
 }
 
-model products {
-  product_id   String   @id @default(uuid()) @db.Uuid
-  name         String      @db.VarChar(255)
+model Products {
+  product_id   String    @id @default(uuid()) @db.Uuid
+  name         String    @db.VarChar(255)
   description  String?
   price        Float     
-  unit         String?     @db.VarChar(50)
+  unit         String?   @db.VarChar(50)
   image        String?
   discount     Float?    
-  availability Boolean?    @default(true)
-  brand        String?     @db.VarChar(100)
+  availability Boolean   @default(true)
+  brand        String?   @db.VarChar(100)
   rating       Float?    
   category_id  Int?
-  created_at   DateTime?   @default(now()) @db.Timestamp(6)
-  updated_at   DateTime?   @default(now()) @db.Timestamp(6)
-  categories   categories? @relation(fields: [category_id], references: [category_id])
+  createdAt    DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt    DateTime  @updatedAt @db.Timestamp(6)
+  category     Category? @relation(fields: [category_id], references: [category_id])
+  reviews      Review[]
+  cartItems    CartItem[]
+  orderItems   OrderItem[]
+}
+
+model User {
+  id                 String    @id @default(uuid())
+  name               String
+  email              String    @unique
+  password           String
+  roles              UserRole  @default(USER)
+  phoneNumber        String?
+  profileImage       String?
+  addresses          Address[]
+  orders             Order[]
+  cart               Cart?
+  reviews            Review[]    
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  isVerified         Boolean   @default(false)
+  resetToken         String?
+  resetTokenExpiry   DateTime?
+  passwordChangedAt  DateTime?  
+  active             Boolean   @default(true) 
+}
+
+model Address {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  street    String
+  city      String
+  state     String?
+  zipCode   String?
+  country   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Order {
+  id           String       @id @default(uuid())
+  userId       String
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  status       OrderStatus  @default(PENDING)
+  total        Float
+
+  items        OrderItem[]
+
+  cancelledAt  DateTime?
+  cancelledBy  CancelledBy?
+
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+model OrderItem {
+  id         String   @id @default(uuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product_id  String   @db.Uuid
+  product    Products @relation(fields: [product_id], references: [product_id])
+  quantity   Int
+  price      Float
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Cart {
+  id        String     @id @default(uuid())
+  userId    String     @unique
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product_id String   @db.Uuid
+  product   Products @relation(fields: [product_id], references: [product_id])
+  quantity  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product_id String   @db.Uuid
+  product   Products @relation(fields: [product_id], references: [product_id], onDelete: Cascade)
+  content   String?
+  rating    Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, product_id])
 }
