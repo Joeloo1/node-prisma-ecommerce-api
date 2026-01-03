@@ -19,6 +19,6 @@ export const updateAddressSchema = z.object({
 });
 
 // Get Address BY ID
- export const addressIdSchema = z.object({
-    id: z.string().uuid("Invalid product ID format"),
-})
+export const addressIdSchema = z.object({
+  id: z.string().uuid("Invalid product ID format"),
+});
