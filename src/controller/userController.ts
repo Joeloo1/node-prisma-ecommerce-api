@@ -4,168 +4,191 @@ import AppError from "../utils/AppError";
 import { prisma } from "../config/database";
 import { updateUserSchema } from "../Schema/userSchema";
 import { User } from "@prisma/client";
-import { filterObj } from "../utils/filterObj"; 
-
-
+import { filterObj } from "../utils/filterObj";
+import logger from "../config/logger";
 
 declare global {
   namespace Express {
     interface Request {
-      user?: User; 
+      user?: User;
     }
   }
-};
+}
 
-// update user 
-export const updateMe = catchAsync(async(req: Request, res: Response, next: NextFunction) => {
-  if (!req.user || !req.user.id) {
-    return next(new AppError('You are not logged in', 401))
-  };
+// update user
+export const updateMe = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    if (req.body.password || req.body.passwordConfirm) {
+      logger.warn("User attempt to update password with updateMe routes");
+      return next(
+        new AppError(
+          "This route is not for password updates, Please use /updateMyPassword",
+          400,
+        ),
+      );
+    }
 
-  if (req.body.password || req.body.passwordConfirm) {
-    return next(new AppError(
-      'This route is not for password updates, Please use /updateMyPassword',
-      400
-    ))
-  }
+    const userData = updateUserSchema.parse(req.body);
 
-  const userData= updateUserSchema.parse(req.body);
+    const filteredBody = filterObj(userData, "name", "email", "phoneNumber");
+    if (req.file) {
+      filteredBody.profileImage = req.file.filename;
+    }
 
+    // Ensure at least one field is provided
+    if (Object.keys(filteredBody).length === 0) {
+      logger.warn("No valid fields provided for user update");
+      return next(
+        new AppError(
+          "Provide at least one valid field to update (name, email, phoneNumber, profileImage).",
+          400,
+        ),
+      );
+    }
 
-  const filteredBody = filterObj(userData, 'name', 'email', 'phoneNumber' );
-  if (req.file) {
-    filteredBody.profileImage = req.file.filename
-  }
+    logger.info(`User with ID: ${req.user!.id} is updating their profile`);
+    // Update user
+    const updatedUser = await prisma.user.update({
+      where: { id: req.user!.id },
+      data: filteredBody,
+    });
 
-  // Ensure at least one field is provided
-  if (Object.keys(filteredBody).length === 0) {
-    return next(
-      new AppError(
-        'Provide at least one valid field to update (name, email, phoneNumber, profileImage).',
-        400
-      )
+    logger.info(`User with ID: ${req.user!.id} updated successfully`);
+    res.status(200).json({
+      status: "success",
+      message: "User updated successfully",
+      user: updatedUser,
+    });
+  },
+);
+
+// get Me
+export const getMe = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    logger.info(`User with ID: ${req.user!.id} is fetching their profile`);
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+    });
+
+    if (!user) {
+      logger.warn(`user with ID:${req.user!.id} not found`);
+      return next(new AppError("User not found", 404));
+    }
+
+    logger.info(`User with ID: ${req.user!.id} fetched successfully`);
+    res.status(200).json({
+      status: "success",
+      data: user,
+    });
+  },
+);
+
+// delete Me
+export const deleteMe = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    logger.info(`User with ID: ${req.user!.id} is deactivating their account`);
+    await prisma.user.update({
+      where: { id: req.user!.id },
+      data: { active: false },
+    });
+
+    logger.info(
+      `User with ID: ${req.user!.id} successfully deactivated their account`,
     );
-  };
+    res.status(200).json({
+      status: "success",
+      data: null,
+    });
+  },
+);
 
-  // Update user
-  const updatedUser = await prisma.user.update({
-    where: { id: req.user.id },
-    data: filteredBody,
-    
-  });
+// get all the user
+export const getAllUsers = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    logger.info("Admin fetching all users");
+    const users = await prisma.user.findMany();
 
-  res.status(200).json({
-    status: 'success',
-    message: 'User updated successfully',
-    user: updatedUser
-  });
-});
-
-// get Me 
-export const getMe = catchAsync(async(req: Request, res: Response, next: NextFunction) => {
-  if (!req.user) {
-    return next(new AppError('You are not logged in', 401))
-  };
-
-  const user = await prisma.user.findUnique({
-    where: { id: req.user.id },
-  })
-
-  if (!user) {
-    return next(new AppError('User not found', 404))
-  };
-
-  res.status(200).json({
-    status: 'success',
-    data:user
-  })
-});
-
-// delete Me 
- export const deleteMe = catchAsync(async(req: Request, res: Response, next: NextFunction) => {
-  if (!req.user) {
-    return next(new AppError('You are not logged in', 401))
-  };
-
-  await prisma.user.update({
-    where: { id: req.user.id },
-    data: { active: false },
-  });
-
-  res.status(200).json({
-    status: 'success',
-    data: null
-  })
-}); 
-
-// get all the user 
-export const getAllUsers = catchAsync(async(req: Request, res: Response, next: NextFunction) => {
-  const users = await prisma.user.findMany();
-
-  res.status(200).json({
-    status: 'success',
-    results: users.length,
-    data: {
-      users
-    }
-  })
-});
+    logger.info(`Fetched ${users.length} users successfully`);
+    res.status(200).json({
+      status: "success",
+      results: users.length,
+      data: {
+        users,
+      },
+    });
+  },
+);
 
 // get user
-export const getUser = catchAsync(async(req: Request, res: Response, next: NextFunction) => {
-  const user = await prisma.user.findUnique({
-    where: { id: req.params.id}
-  });
+export const getUser = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    logger.info(`Admin fetching user with ID: ${req.params.id}`);
+    const user = await prisma.user.findUnique({
+      where: { id: req.params.id },
+    });
 
-  if (!user) {
-    return next(new AppError(
-      'There is no user with the ID', 404
-    ));
-  };
+    if (!user) {
+      logger.warn(`User with ID: ${req.params.id} not found`);
+      return next(new AppError("There is no user with the ID", 404));
+    }
 
-  res.status(200).json({
-    status: 'success',
-    data: { user }
-  })
-}); 
+    logger.info(`User with ID:${req.params.id} fetched successfully`);
+    res.status(200).json({
+      status: "success",
+      data: { user },
+    });
+  },
+);
 
 // create user
 export const createUser = (req: Request, res: Response, next: NextFunction) => {
+  logger.error("Attempt to create user via undefined route");
   res.status(500).json({
-    status: 'error',
-    message: 'This route is not defined! Please use /Signup instead'
-  })
+    status: "error",
+    message: "This route is not defined! Please use /Signup instead",
+  });
 };
 
-// update user 
-export const updateUser = catchAsync(async(req: Request, res: Response, next: NextFunction) => {
-  const { name, email, roles } = (req.body);
+// update user
+export const updateUser = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { name, email, roles } = req.body;
 
-  const updatedUser = await prisma.user.update({
-    where: {id: req.params.id },
-    data: { name, email, roles }
-  });
+    logger.info(`Admin updating user with ID: ${req.params.id}`);
+    const updatedUser = await prisma.user.update({
+      where: { id: req.params.id },
+      data: { name, email, roles },
+    });
 
-  if (!updateUser) {
-    return next(new AppError('No user found with this ID', 404))
-  }
-
-  res.status(200).json({
-    status: 'success',
-    data: {
-      user: updatedUser
+    if (!updatedUser) {
+      logger.warn(`No user found with ID: ${req.params.id}`);
+      return next(new AppError("No user found with this ID", 404));
     }
-  })
-});
 
-// delete user 
- export const deleteUser = catchAsync(async(req: Request, res: Response, next: NextFunction) => {
-   await prisma.user.delete({
-    where: { id: req.params.id }
-  });
+    logger.info(`User with ID: ${req.params.id} update successfully`);
+    res.status(200).json({
+      status: "success",
+      data: {
+        user: updatedUser,
+      },
+    });
+  },
+);
 
-  res.status(204).json({
-    status: 'success',
-    data : null
-  })
-})
+// delete user
+export const deleteUser = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    logger.info(
+      `Admin deleteing user with ID: ${req.params.id} from the database`,
+    );
+    await prisma.user.delete({
+      where: { id: req.params.id },
+    });
+
+    logger.info(`User with ID: ${req.params.id} deleted successfully`);
+    res.status(204).json({
+      status: "success",
+      data: null,
+    });
+  },
+);
