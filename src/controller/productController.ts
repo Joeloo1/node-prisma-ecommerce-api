@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../config/database";
 import catchAsync from "../utils/catchAsync";
 import AppError from "../utils/AppError";
 import { productQuerySchema } from "../Schema/querySchema";
@@ -11,7 +11,6 @@ import {
 } from "../utils/queryBuilder";
 import logger from "../config/logger";
 
-const prisma = new PrismaClient();
 
 // CREATE PRODUCT
 export const createProduct = catchAsync(

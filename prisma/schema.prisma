@@ -65,7 +65,7 @@ model User {
   password           String
   roles              UserRole  @default(USER)
   phoneNumber        String?
-  profileImage       String?
+  profileImage       String    @default("default.jpg")
   addresses          Address[]
   orders             Order[]
   cart               Cart?

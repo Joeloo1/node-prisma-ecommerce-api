@@ -21,7 +21,7 @@ export const signupSchema = z
     phoneNumber: z
       .string()
       .min(10, { message: "Phone number must be at least 11 characterslong" })
-      .max(1, { message: "Phone number must be at least 15 characters long" })
+      .max(14, { message: "Phone number must be at least 15 characters long" })
       .optional()
       .transform((val) => (val ? val.trim() : val)),
     profileImage: z
