@@ -4,48 +4,60 @@ import sharp from "sharp";
 import { Request, Response, NextFunction } from "express";
 import AppError from "../utils/AppError";
 import catchAsync from "../utils/catchAsync";
+import logger from "../config/logger";
 
-// Multer memory storage 
+// Multer memory storage
 const multeStorage = multer.memoryStorage();
 
-const multerFilter = (req: Request, file: Express.Multer.File, cd: FileFilterCallback) => {
-  if (file.mimetype.startsWith('image')) {
-    cd(null, true)
+const multerFilter = (
+  req: Request,
+  file: Express.Multer.File,
+  cd: FileFilterCallback,
+) => {
+  logger.info(
+    `File upload attempt: ${file.originalname} with mimetype: ${file.mimetype}`,
+  );
+  if (file.mimetype.startsWith("image")) {
+    cd(null, true);
   } else {
-    cd(new AppError('Not an image! Please upload only images', 400))
+    logger.warn("Upload failed: Not an image file");
+    cd(new AppError("Not an image! Please upload only images", 400));
   }
-}
+};
 
 const upload = multer({
   storage: multeStorage,
-  fileFilter: multerFilter
+  fileFilter: multerFilter,
 });
 
-// middleware to upload single file 
-export const uploadUserPhoto = upload.single('profileImage');
+// middleware to upload single file
+export const uploadUserPhoto = upload.single("profileImage");
 
-// resize image 
-export const resizeUserPhoto = catchAsync(async(req: Request, res: Response, next: NextFunction ) => {
-  if (!req.file) return next();
+// resize image
+export const resizeUserPhoto = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    logger.info("Resizing user photo");
+    if (!req.file) return next();
 
-  if (!req.user || !req.user.id) {
-    return next(new AppError('User not authenticated', 401))
-  };
+    if (!req.user || !req.user.id) {
+      logger.error("User not authenticated for photo upload");
+      return next(new AppError("User not authenticated", 401));
+    }
 
-  // Generate unique filename 
-  const filename = `user-${req.user.id}-${Date.now()}.jpeg`;
-  const uploadDir = path.join(__dirname, '../../public/users')
-  const filepath =  path.join(uploadDir, filename);
+    // Generate unique filename
+    const filename = `user-${req.user.id}-${Date.now()}.jpeg`;
+    const uploadDir = path.join(__dirname, "../../public/users");
+    const filepath = path.join(uploadDir, filename);
 
-  // Resize and save image 
-  await sharp(req.file.buffer)
-    .resize(500, 500)
-    .toFormat('jpeg')
-    .jpeg({ quality: 90 })
-    .toFile(filepath)
+    // Resize and save image
+    await sharp(req.file.buffer)
+      .resize(500, 500)
+      .toFormat("jpeg")
+      .jpeg({ quality: 90 })
+      .toFile(filepath);
 
-  req.file.filename = filename
+    req.file.filename = filename;
 
-  next();
-})
-
+    next();
+  },
+);
