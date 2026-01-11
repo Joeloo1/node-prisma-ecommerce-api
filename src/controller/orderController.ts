@@ -10,78 +10,55 @@ export const createOrder = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.user!.id;
     const { items } = req.body;
-
     if (!items || !Array.isArray(items) || items.length === 0) {
-      logger.warn("Item is required and can not be empty");
       return next(new AppError("Items is required and cannot be empty", 400));
     }
 
-    // calculating total from DB produt price
+    const productIds = items.map((item) => item.product_id);
+    const products = await prisma.products.findMany({
+      where: { product_id: { in: productIds } },
+    });
+
+    const productMap = new Map(products.map((p) => [p.product_id, p]));
     let calculatedTotal = 0;
 
-    const orderItemsData: any[] = [];
+    const orderItemsData = items.map((item) => {
+      const product = productMap.get(item.product_id);
 
-    for (const item of items) {
-      const product = await prisma.products.findUnique({
-        where: { product_id: item.product_id },
-      });
-
-      logger.info(`Fetched product for ID ${item.product_id}: ${product}`);
       if (!product) {
-        logger.warn(`product with ID ${item.product_id} not found`);
-        return next(new AppError(`Product not found: ${item.product_id}`, 404));
+        throw new AppError(`Product not found: ${item.product_id}`, 404);
       }
-
       if (item.quantity <= 0) {
-        logger.warn(`Invalid quantity for product ID ${item.product_id}`);
-        return next(new AppError("Quantity must be greater than 0", 400));
+        throw new AppError(`Invalid quantity for ${product.name}`, 400);
       }
 
-      const itemTotal = product.price * item.quantity;
-      calculatedTotal += itemTotal;
+      calculatedTotal += product.price * item.quantity;
 
-      orderItemsData.push({
+      return {
         product_id: item.product_id,
         quantity: item.quantity,
         price: product.price,
-      });
-    }
-
-    logger.info(`Calculated total order amount : ${calculatedTotal}`);
-    // Transaction to store order + order items
-    const order = await prisma.$transaction(async (tx) => {
-      const newOrder = await tx.order.create({
-        data: {
-          userId,
-          total: calculatedTotal,
-          status: "PENDING",
-        },
-      });
-
-      logger.info(`Created new order with ID: ${newOrder.id}`);
-      const orderItems = await Promise.all(
-        orderItemsData.map((item) =>
-          tx.orderItem.create({
-            data: {
-              orderId: newOrder.id,
-              product_id: item.product_id,
-              quantity: item.quantity,
-              price: item.price,
-            },
-          }),
-        ),
-      );
-
-      return {
-        ...newOrder,
-        items: orderItems,
       };
     });
 
-    logger.info(`order created successfully with ID: ${order.id}`);
+    const order = await prisma.order.create({
+      data: {
+        userId,
+        total: calculatedTotal,
+        status: "PENDING",
+        items: {
+          create: orderItemsData,
+        },
+      },
+      include: {
+        items: true,
+      },
+    });
+
+    logger.info(`Order ${order.id} created by user ${userId}`);
+
     res.status(201).json({
       status: "success",
-      message: "Order created successfully",
       data: { order },
     });
   },
