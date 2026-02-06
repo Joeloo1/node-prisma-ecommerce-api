@@ -6,10 +6,11 @@ import adminProductRoute from "./adminProductRoutes";
 import adminUserRoute from "./adminUserRoutes";
 import adminCategoryRoute from "./adminCategoryRoutes";
 import adminOrderRoute from "./adminOrderRoutes";
+import { Role } from "../../types/role.types";
 
 const router = express.Router();
 
-router.use(Protect, restrictTo("ADMIN"));
+router.use(Protect, restrictTo(Role.ADMIN));
 
 router.use("/categories", adminCategoryRoute);
 router.use("/products", adminProductRoute);

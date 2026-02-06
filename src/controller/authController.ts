@@ -13,23 +13,11 @@ import {
 import AppError from "../utils/AppError";
 import { signToken } from "../utils/jwt";
 import { prisma } from "./../config/database";
-import { User } from "@prisma/client";
 import sendMail from "../utils/email";
 import logger from "../config/logger";
-import { email } from "zod";
+import { Role } from "../types/role.types";
+import { JwtPayload } from "../types/auth.types";
 
-interface DecodedToken {
-  id: string;
-  iat: number;
-}
-
-declare global {
-  namespace Express {
-    interface Request {
-      user?: User;
-    }
-  }
-}
 
 //  Signup User
 export const signup = catchAsync(
@@ -146,7 +134,7 @@ export const Protect = catchAsync(
     const decoded = JWT.verify(
       token,
       process.env.JWT_SECRET as string,
-    ) as DecodedToken;
+    ) as JwtPayload;
     // check if user still exists
     const currentUser = await prisma.user.findUnique({
       where: { id: decoded.id },
@@ -173,7 +161,7 @@ export const Protect = catchAsync(
 );
 
 // restrict to only admin
-export const restrictTo = (...roles: string[]) => {
+export const restrictTo = (...roles: Role[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
       logger.warn('Unauthorized role access attempt')
@@ -182,7 +170,7 @@ export const restrictTo = (...roles: string[]) => {
       );
     }
     // Check if user has required role
-    if (!roles.includes(req.user.roles)) {
+    if (!roles.includes(req.user.roles as Role)) {
       logger.warn('Forbidden access attempt - insufficient permissions', { userId: req.user.id, requiredRoles: roles });
       return next(
         new AppError("You do not have permission to perform this action", 403),
