@@ -20,8 +20,8 @@ export const signupSchema = z
     roles: z.enum(["USER", "ADMIN"]).default("USER"),
     phoneNumber: z
       .string()
-      .min(10, { message: "Phone number must be at least 11 characterslong" })
-      .max(14, { message: "Phone number must be at least 15 characters long" })
+      .min(10, { message: "Phone number must be at least 10 characters long" })
+      .max(14, { message: "Phone number must be at most 14 characters long" })
       .optional()
       .transform((val) => (val ? val.trim() : val)),
     profileImage: z

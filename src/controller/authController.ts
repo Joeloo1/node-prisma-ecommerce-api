@@ -18,7 +18,6 @@ import logger from "../config/logger";
 import { Role } from "../types/role.types";
 import { JwtPayload } from "../types/auth.types";
 
-
 //  Signup User
 export const signup = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
@@ -31,10 +30,10 @@ export const signup = catchAsync(
       logger.warn("User already exists in database", { email: user.email });
       return next(new AppError("User with this email already exists", 400));
     }
-    
+
     user.password = await hashPassword(user.password);
 
-    logger.info('Creating a new user', { email: user.email });
+    logger.info("Creating a new user", { email: user.email });
     const newUser = await prisma.user.create({
       data: {
         name: user.name,
@@ -57,7 +56,7 @@ export const signup = catchAsync(
       createAt: newUser.createdAt,
       updatedAt: newUser.updatedAt,
     };
-    logger.info('User created successfully', { email: newUser.email });
+    logger.info("User created successfully", { email: newUser.email });
     res.status(201).json({
       status: "success",
       token,
@@ -76,14 +75,14 @@ export const login = catchAsync(
     const user = await prisma.user.findUnique({ where: { email } });
 
     if (!user) {
-      logger.warn('Login attempt with incorrect email', { email})
+      logger.warn("Login attempt with incorrect email", { email });
       return next(new AppError("Incorrect email and password", 401));
     }
 
     const isPasswordCorrect = await comparePassword(password, user.password);
 
     if (!isPasswordCorrect) {
-      logger.warn('Login attempt with incorrect password', { email });
+      logger.warn("Login attempt with incorrect password", { email });
       return next(new AppError("Incorrect email and password", 401));
     }
 
@@ -102,7 +101,7 @@ export const login = catchAsync(
       active: user.active,
     };
 
-    logger.info('User logged in successfully', { email: user.email });
+    logger.info("User logged in successfully", { email: user.email });
     res.status(200).json({
       status: "success",
       token,
@@ -125,7 +124,7 @@ export const Protect = catchAsync(
     }
 
     if (!token) {
-      logger.warn('Unauthorized access attempt - no token provided');
+      logger.warn("Unauthorized access attempt - no token provided");
       return next(
         new AppError("You are no longer logged in, Please log in again", 401),
       );
@@ -141,7 +140,9 @@ export const Protect = catchAsync(
     });
 
     if (!currentUser) {
-      logger.warn('Unauthorized access attempt - user no longer exists', { userId: decoded.id });
+      logger.warn("Unauthorized access attempt - user no longer exists", {
+        userId: decoded.id,
+      });
       return next(
         new AppError("User belonging to this token no longer exists", 401),
       );
@@ -150,7 +151,10 @@ export const Protect = catchAsync(
     // check if user changed password after token was issued
 
     if (changePasswordAfter(currentUser.passwordChangedAt, decoded.iat)) {
-      logger.warn('Unauthorized access attempt - password changed after token issued', { userId: currentUser.id });
+      logger.warn(
+        "Unauthorized access attempt - password changed after token issued",
+        { userId: currentUser.id },
+      );
       return next(
         new AppError("You recently changed password, please log in again", 401),
       );
@@ -164,14 +168,17 @@ export const Protect = catchAsync(
 export const restrictTo = (...roles: Role[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
-      logger.warn('Unauthorized role access attempt')
+      logger.warn("Unauthorized role access attempt");
       return next(
         new AppError("You must be logged in to perform this action", 401),
       );
     }
     // Check if user has required role
     if (!roles.includes(req.user.roles as Role)) {
-      logger.warn('Forbidden access attempt - insufficient permissions', { userId: req.user.id, requiredRoles: roles });
+      logger.warn("Forbidden access attempt - insufficient permissions", {
+        userId: req.user.id,
+        requiredRoles: roles,
+      });
       return next(
         new AppError("You do not have permission to perform this action", 403),
       );
@@ -186,7 +193,7 @@ export const forgetPassword = catchAsync(
     const { email } = req.body;
 
     if (!email) {
-      logger.warn('Password reset attempt without providing email');
+      logger.warn("Password reset attempt without providing email");
       return next(new AppError("Please provide your email", 400));
     }
 
@@ -195,15 +202,14 @@ export const forgetPassword = catchAsync(
     });
 
     if (!user) {
-      logger.warn('Password reset attempt with non-existing email', { email });
+      logger.warn("Password reset attempt with non-existing email", { email });
       return next(new AppError("There is no user with the email", 404));
     }
 
-    logger.info('Generating password reset token', { email });
+    logger.info("Generating password reset token", { email });
     const { passwordResetToken, resetToken, resetTokenExpiry } =
       createPasswordResetToken();
 
-      
     // save the hashed token to database
     await prisma.user.update({
       where: { email },
@@ -223,7 +229,7 @@ export const forgetPassword = catchAsync(
         message,
       });
 
-      logger.info('Password reset token sent via email', { email });
+      logger.info("Password reset token sent via email", { email });
       res.status(200).json({
         status: "success",
         message: "Token sent to email",
@@ -237,7 +243,7 @@ export const forgetPassword = catchAsync(
         },
       });
 
-      logger.error('Error sending password reset email', { email, error: err });
+      logger.error("Error sending password reset email", { email, error: err });
       return next(
         new AppError(
           "There was an error sending the email, Please try again later",
@@ -255,13 +261,13 @@ export const resetPassword = catchAsync(
     const { password, passwordConfirm } = req.body;
 
     if (!password || !passwordConfirm) {
-      logger.warn('Password reset attempt with missing fields')
+      logger.warn("Password reset attempt with missing fields");
       return next(
         new AppError("Please provide password and passwordConfirm", 400),
       );
     }
     if (password !== passwordConfirm) {
-      logger.warn('Password reset attempt with non-matching passwords')
+      logger.warn("Password reset attempt with non-matching passwords");
       return next(new AppError("Passwords do not match", 400));
     }
 
@@ -276,7 +282,7 @@ export const resetPassword = catchAsync(
     });
 
     if (!user) {
-      logger.warn('Password reset attempt with invalid or expired token');
+      logger.warn("Password reset attempt with invalid or expired token");
       return next(new AppError("Token is Invalid or has expire", 400));
     }
 
@@ -292,7 +298,7 @@ export const resetPassword = catchAsync(
       },
     });
 
-    logger.info('Password reset successful', { email: user.email });
+    logger.info("Password reset successful", { email: user.email });
     res.status(200).json({
       status: "success",
       message: "Password has been reset successfuly,",
@@ -306,17 +312,21 @@ export const updatePassword = catchAsync(
     const { currentPassword, newPassword, passwordConfirm } = req.body;
 
     if (!currentPassword || !newPassword || !passwordConfirm) {
-      logger.warn('Password update attempt with missing fields', { userId: req.user!.id });
+      logger.warn("Password update attempt with missing fields", {
+        userId: req.user!.id,
+      });
       return next(new AppError("All fields are required", 400));
     }
 
     if (newPassword !== passwordConfirm) {
-      logger.warn('Password update attempt with non-matching new passwords', { userId: req.user!.id });
+      logger.warn("Password update attempt with non-matching new passwords", {
+        userId: req.user!.id,
+      });
       return next(new AppError("New passwords do not match", 400));
     }
 
     if (!req.user) {
-      logger.warn('Password update attempt by unauthenticated user',);
+      logger.warn("Password update attempt by unauthenticated user");
       return next(new AppError("You are not logged in", 401));
     }
 
@@ -331,14 +341,15 @@ export const updatePassword = catchAsync(
     const isValidPass = await comparePassword(currentPassword, user.password);
 
     if (!isValidPass) {
-      logger.warn('Password update attempt with incorrect current password', { userId: user.id });
+      logger.warn("Password update attempt with incorrect current password", {
+        userId: user.id,
+      });
       return next(new AppError("Your current password is incorrect", 401));
     }
 
     // 3. Hash and update new password
     const hashedNewPassword = await hashPassword(newPassword);
 
-    
     await prisma.user.update({
       where: { id: user.id },
       data: {
@@ -348,7 +359,9 @@ export const updatePassword = catchAsync(
     });
 
     // 4. Force the user to re-login
-    logger.info('Password updated successfully, user must re-login', { userId: user.id });
+    logger.info("Password updated successfully, user must re-login", {
+      userId: user.id,
+    });
     res.status(200).json({
       status: "success",
       message: "Password updated successfully. Please log in again.",

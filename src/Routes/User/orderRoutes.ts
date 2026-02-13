@@ -7,6 +7,7 @@ import {
   updateOrder,
   cancelOrder,
 } from "../../controller/orderController";
+import { Role } from "../../types/role.types";
 
 const router = express.Router();
 
@@ -18,6 +19,6 @@ router
   .route("/:id")
   .get(getOrderById)
   .patch(cancelOrder)
-  .patch(restrictTo("ADMIN"), updateOrder);
+  .patch(restrictTo(Role.ADMIN), updateOrder);
 
 export default router;
