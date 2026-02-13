@@ -13,14 +13,18 @@ export const prisma = new PrismaClient({
 
 export const connectDB = async () => {
   try {
+    console.log("⏳ Connecting to database...");
     await prisma.$connect();
-    logger.info("🟢 DB Connected  via Prisma");
-    console.log("🟢 DB Connected  via Prisma");
+    logger.info("🟢 DB Connected via Prisma");
+    console.log("🟢 DB Connected via Prisma");
+    return true;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger.info(`🔴 DB connection error: ${message}`);
-    console.error(`DB connection error: ${message}`);
-    process.exit(1);
+    const fullError = error instanceof Error ? error.stack : String(error);
+    logger.error(`🔴 DB connection error: ${message}`);
+    console.error(`🔴 DB connection error: ${message}`);
+    console.error("Full error:", fullError);
+    throw new Error(`Database connection failed: ${message}`);
   }
 };
 
