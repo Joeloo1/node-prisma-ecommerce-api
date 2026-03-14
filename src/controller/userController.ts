@@ -3,18 +3,18 @@ import catchAsync from "../utils/catchAsync";
 import AppError from "../utils/AppError";
 import { prisma } from "../config/database";
 import { updateUserSchema } from "../Schema/userSchema";
-import { User } from "@prisma/client";
+// import { User } from "@prisma/client";
 import { filterObj } from "../utils/filterObj";
 import logger from "../config/logger";
 import { client as redis } from "../config/redis";
 
-declare global {
-  namespace Express {
-    interface Request {
-      user?: User;
-    }
-  }
-}
+// declare global {
+//   namespace Express {
+//     interface Request {
+//       user?: User;
+//     }
+//   }
+// }
 
 const REDIS_TTL = 3600;
 const getUserKey = (id: string) => `user:${id}`;

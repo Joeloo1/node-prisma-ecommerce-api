@@ -56,7 +56,6 @@ export function buildWhereClause(filters: ProductQueryInput) {
   return where;
 }
 
-
 // Build ORDER BY clause for Prisma
 export function buildOrderByClause(filters: ProductQueryInput) {
   return {
