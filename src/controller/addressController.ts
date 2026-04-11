@@ -12,11 +12,12 @@ import { client as redis } from "../config/redis";
 const REDIS_TTL = 3600;
 const getAddressKey = (id: string) => `address:${id}`;
 
-const getAddressQueryKey = (query: any) =>
-  `categories:list:${JSON.stringify(query)}`;
+/** Per-user list cache — must NOT share keys with category/product caches */
+const getAddressListKey = (userId: string, query: unknown) =>
+  `addresses:list:${userId}:${JSON.stringify(query ?? {})}`;
 
-const clearAddressCache = async () => {
-  const keys = await redis.keys("categorys:list:*");
+const clearAddressListCache = async (userId: string) => {
+  const keys = await redis.keys(`addresses:list:${userId}:*`);
   if (keys.length > 0) await redis.del(keys);
 };
 // create Address
@@ -33,7 +34,7 @@ export const createAddress = catchAsync(
       },
     });
 
-    await clearAddressCache();
+    await clearAddressListCache(userId);
 
     logger.info("Address created sucessfully");
     res.status(201).json({
@@ -76,7 +77,7 @@ export const updateAddress = catchAsync(
     });
 
     await redis.del(getAddressKey(addressId));
-    await clearAddressCache();
+    await clearAddressListCache(userId);
 
     logger.info("Address updated successfully");
     res.status(200).json({
@@ -91,11 +92,12 @@ export const updateAddress = catchAsync(
 // Get All Address
 export const getAllAddresses = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
-    const cacheKey = getAddressQueryKey(req.query);
+    const userId = req.user!.id;
+    const cacheKey = getAddressListKey(userId, req.query);
 
     const cachedData = await redis.get(cacheKey);
     if (cachedData) {
-      logger.info("Serving category from cache");
+      logger.info("Serving addresses from cache", { userId });
       return res.status(200).json({
         status: "success",
         source: "cache",
@@ -104,9 +106,9 @@ export const getAllAddresses = catchAsync(
         },
       });
     }
-    logger.info("User fetching all addresses", { userId: req.user!.id });
+    logger.info("User fetching all addresses", { userId });
     const address = await prisma.address.findMany({
-      where: { userId: req.user!.id },
+      where: { userId },
     });
 
     await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(address));
@@ -127,11 +129,11 @@ export const getAddress = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const addressId = req.params.id;
 
-    const cacheKey = getAddressQueryKey(addressId);
+    const cacheKey = getAddressKey(addressId);
 
     const cachedData = await redis.get(cacheKey);
     if (cachedData) {
-      logger.info("Serving category from cache");
+      logger.info("Serving address from cache", { addressId });
       return res.status(200).json({
         status: "success",
         source: "cache",
@@ -152,7 +154,7 @@ export const getAddress = catchAsync(
       return next(new AppError("Address not found", 404));
     }
 
-    await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(addressId));
+    await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(address));
 
     logger.info("Address fetched successfully");
     res.status(200).json({
@@ -188,7 +190,7 @@ export const deleteAddress = catchAsync(
     });
 
     await redis.del(getAddressKey(address.id));
-    await clearAddressCache();
+    await clearAddressListCache(req.user!.id);
 
     logger.info("Address deleted successfully", { addressId: req.params.id });
     res.status(200).json({
