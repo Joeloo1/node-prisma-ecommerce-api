@@ -1,11 +1,9 @@
+import "dotenv/config";
 import { connectDB, disconnectDB } from "./config/database";
 import { connectRedis } from "./config/redis";
 import logger from "./config/logger";
 import app from "./app";
-import dotenv from "dotenv";
 import { Server } from "http";
-
-dotenv.config();
 
 const port = process.env.PORT || 3000;
 let server: Server;

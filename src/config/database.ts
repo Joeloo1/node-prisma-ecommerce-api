@@ -1,8 +1,6 @@
+import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
-import dotenv from "dotenv";
 import logger from "./logger";
-
-dotenv.config();
 
 export const prisma = new PrismaClient({
   log:

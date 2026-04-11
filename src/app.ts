@@ -2,6 +2,7 @@ import express, { NextFunction, Request, Response } from "express";
 import morgan from "morgan";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
+import cors from "cors";
 
 import productRoutes from "./Routes/User/productRoutes";
 import categoryRoutes from "./Routes/User/categoriesRoutes";
@@ -17,6 +18,14 @@ import AppError from "./utils/AppError";
 import { globalErrorHandler } from "./Error/globalErrorHandler";
 
 const app = express();
+
+const corsOrigins = process.env.CORS_ORIGIN?.split(",").map((o) => o.trim()).filter(Boolean);
+app.use(
+  cors({
+    origin: corsOrigins && corsOrigins.length > 0 ? corsOrigins : true,
+    credentials: true,
+  }),
+);
 
 // set seurity HTTP Header
 app.use(helmet());

@@ -5,8 +5,7 @@ generator client {
   // url is no longer supported, configure in prisma.config.ts
 datasource db {
   provider = "postgresql"
-      url = env("DATABASE_URL")
-      directUrl = env("DIRECT_URL")
+  url      = env("DATABASE_URL")
 }
 
 enum OrderStatus {

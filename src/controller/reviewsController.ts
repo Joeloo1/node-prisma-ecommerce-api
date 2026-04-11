@@ -108,9 +108,15 @@ export const getProductReview = catchAsync(
       });
     }
 
-    logger.info(`Fetching reviews for product ID: ${req.params.product_id}`);
+    const productId =
+      typeof req.query.product_id === "string" ? req.query.product_id : undefined;
+    if (!productId) {
+      return next(new AppError("Query parameter product_id is required", 400));
+    }
+
+    logger.info(`Fetching reviews for product ID: ${productId}`);
     const reviews = await prisma.review.findMany({
-      where: { product_id: req.params.product_id },
+      where: { product_id: productId },
       include: {
         user: { select: { id: true, name: true, email: true } },
       },
@@ -119,7 +125,7 @@ export const getProductReview = catchAsync(
     await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(reviews));
 
     logger.info(
-      `Reviews for Product ID: ${req.params.product_id} fetched successfully`,
+      `Reviews for Product ID: ${productId} fetched successfully`,
     );
     res.status(200).json({
       status: "success",

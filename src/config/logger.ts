@@ -1,5 +1,13 @@
-import winston from "winston";
+import fs from "fs";
 import path from "path";
+import winston from "winston";
+
+const logDir = path.join(process.cwd(), "logs");
+try {
+  fs.mkdirSync(logDir, { recursive: true });
+} catch {
+  /* ignore — file transports may still work or fall back to console-only below */
+}
 
 const { combine, colorize, printf, timestamp, errors, json } = winston.format;
 
@@ -48,14 +56,14 @@ const fileFormat = combine(
 const transports: winston.transport[] = [
   new winston.transports.Console({ format: consoleFormat }),
   new winston.transports.File({
-    filename: path.join("logs", "error.log"),
+    filename: path.join(logDir, "error.log"),
     level: "error",
     format: fileFormat,
     maxsize: 5242880,
     maxFiles: 5,
   }),
   new winston.transports.File({
-    filename: path.join("logs", "combine.log"),
+    filename: path.join(logDir, "combine.log"),
     format: fileFormat,
     maxsize: 5242880,
     maxFiles: 5,
@@ -69,13 +77,13 @@ const logger = winston.createLogger({
   exitOnError: false,
   exceptionHandlers: [
     new winston.transports.File({
-      filename: path.join("logs", "exceptions.logs"),
+      filename: path.join(logDir, "exceptions.logs"),
       format: fileFormat,
     }),
   ],
   rejectionHandlers: [
     new winston.transports.File({
-      filename: path.join("logs", "rejections.log"),
+      filename: path.join(logDir, "rejections.log"),
       format: fileFormat,
     }),
   ],
