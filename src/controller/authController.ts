@@ -17,6 +17,49 @@ import sendMail from "../utils/email";
 import logger from "../config/logger";
 import { Role } from "../types/role.types";
 import { JwtPayload } from "../types/auth.types";
+import { UserRole } from "@prisma/client";
+import { client as redis } from "../config/redis";
+import type { CookieOptions } from "express";
+
+const clearUsersListCache = async () => {
+  const keys = await redis.keys("users:list:*");
+  if (keys.length > 0) await redis.del(keys);
+};
+
+const buildAuthCookieOptions = (): CookieOptions => {
+  const isProd = process.env.NODE_ENV === "production";
+  const maxAgeMs = Number(process.env.JWT_COOKIE_EXPIRES_DAYS ?? "7") * 24 * 60 * 60 * 1000;
+  return {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
+    maxAge: maxAgeMs,
+    path: "/",
+  };
+};
+
+const setAuthCookie = (res: Response, token: string) => {
+  res.cookie("jwt", token, buildAuthCookieOptions());
+};
+
+const clearAuthCookie = (res: Response) => {
+  const isProd = process.env.NODE_ENV === "production";
+  res.clearCookie("jwt", {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
+    path: "/",
+  });
+};
+
+const getTokenFromCookieHeader = (cookieHeader?: string): string | undefined => {
+  if (!cookieHeader) return undefined;
+  const pairs = cookieHeader.split(";").map((part) => part.trim());
+  for (const p of pairs) {
+    if (p.startsWith("jwt=")) return decodeURIComponent(p.slice(4));
+  }
+  return undefined;
+};
 
 //  Signup User
 export const signup = catchAsync(
@@ -40,11 +83,17 @@ export const signup = catchAsync(
         email: user.email,
         password: user.password,
         phoneNumber: user.phoneNumber,
-        roles: user.roles,
+        // Never trust role from client on signup.
+        roles: UserRole.USER,
         profileImage: user.profileImage,
       },
     });
+
+    // New signup affects admin user listings cached by userController.
+    await clearUsersListCache();
+
     const token = signToken({ id: newUser.id });
+    setAuthCookie(res, token);
 
     const sanitizedUser = {
       id: newUser.id,
@@ -87,6 +136,7 @@ export const login = catchAsync(
     }
 
     const token = signToken({ id: user.id });
+    setAuthCookie(res, token);
 
     const sanitizedUser = {
       id: user.id,
@@ -121,6 +171,9 @@ export const Protect = catchAsync(
       req.headers.authorization.startsWith("Bearer")
     ) {
       token = req.headers.authorization.split(" ")[1];
+    }
+    if (!token) {
+      token = getTokenFromCookieHeader(req.headers.cookie);
     }
 
     if (!token) {
@@ -161,6 +214,16 @@ export const Protect = catchAsync(
     }
     req.user = currentUser;
     next();
+  },
+);
+
+export const logout = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    clearAuthCookie(res);
+    res.status(200).json({
+      status: "success",
+      message: "Logged out successfully",
+    });
   },
 );
 

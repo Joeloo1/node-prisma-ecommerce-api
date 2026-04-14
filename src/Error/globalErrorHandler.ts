@@ -138,7 +138,8 @@ export const globalErrorHandler = (
     error = handlePostgresNotNullViolationError(err);
   } else {
     // Unknown or unexpected error
-    error = new AppError(err.message || "Something went wrong", 500);
+    logger.error("Unexpected error", err);
+    error = new AppError("Something went wrong", 500);
   }
 
   return sendErrorProd(error, res);

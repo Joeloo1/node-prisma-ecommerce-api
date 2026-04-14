@@ -17,6 +17,34 @@ const getProductKey = (id: string) => `product:${id}`;
 const getProductsQueryKey = (query: any) =>
   `products:list:${JSON.stringify(query)}`;
 
+const productCategoryInclude = {
+  category: {
+    select: {
+      category_id: true,
+      name: true,
+    },
+  },
+} as const;
+
+const baseListSelect = (includeImages: boolean) =>
+  ({
+    product_id: true,
+    name: true,
+    description: true,
+    price: true,
+    unit: true,
+    image: true,
+    discount: true,
+    availability: true,
+    brand: true,
+    rating: true,
+    category_id: true,
+    createdAt: true,
+    updatedAt: true,
+    ...(includeImages ? ({ images: true } as any) : {}),
+    category: productCategoryInclude.category,
+  }) as any;
+
 const clearProductCache = async () => {
   const keys = await redis.keys("products:list:*");
   if (keys.length > 0) await redis.del(keys);
@@ -86,27 +114,30 @@ export const getAllProducts = catchAsync(
     // Build query components
     const where = buildWhereClause(filters);
     const orderBy = buildOrderByClause(filters);
-    const select = buildSelectClause(filters.fields);
+    const select = buildSelectClause(filters.fields, {
+      includeImages: filters.includeImages,
+    });
     const { skip, take } = getPaginationParams(filters.page, filters.limit);
 
     // Execute query with count in parallel
+    const productsPromise = select
+      ? prisma.products.findMany({
+          where,
+          orderBy,
+          skip,
+          take,
+          select,
+        })
+      : prisma.products.findMany({
+          where,
+          orderBy,
+          skip,
+          take,
+          select: baseListSelect(filters.includeImages),
+        });
+
     const [products, total] = await Promise.all([
-      prisma.products.findMany({
-        where,
-        orderBy,
-        skip,
-        take,
-        include: !select
-          ? {
-              category: {
-                select: {
-                  category_id: true,
-                  name: true,
-                },
-              },
-            }
-          : undefined,
-      }),
+      productsPromise,
       prisma.products.count({ where }),
     ]);
 
@@ -148,23 +179,24 @@ export const getProduct = catchAsync(
     const cachedProduct = await redis.get(cacheKey);
     if (cachedProduct) {
       logger.info(`Serving product ${productId} from cache`);
+      const parsed = JSON.parse(cachedProduct) as any;
+      // If cache was populated before `images` existed, refresh it.
+      if (!Array.isArray(parsed?.images)) {
+        logger.info(`Cache for product ${productId} is stale (missing images). Refreshing...`);
+        await redis.del(cacheKey);
+      } else {
       return res.status(200).json({
         status: "Success",
         source: "cached",
-        data: { product: JSON.parse(cachedProduct) },
+        data: { product: parsed },
       });
+      }
     }
 
     logger.info(`Fetching Product by ID: ${productId}`);
     const product = await prisma.products.findUnique({
       where: { product_id: productId },
-      include: {
-        category: {
-          select: {
-            name: true,
-          },
-        },
-      },
+      include: productCategoryInclude,
     });
 
     if (!product) {
@@ -217,14 +249,7 @@ export const updateProduct = catchAsync(
     const product = await prisma.products.update({
       where: { product_id: productId },
       data,
-      include: {
-        category: {
-          select: {
-            category_id: true,
-            name: true,
-          },
-        },
-      },
+      include: productCategoryInclude,
     });
 
     await redis.del(getProductKey(productId));
@@ -266,6 +291,51 @@ export const deleteProduct = catchAsync(
     res.status(200).json({
       status: "Success",
       data: null,
+    });
+  },
+);
+
+export const addProductImages = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const productId = req.params.id;
+    const uploaded = ((req as any).uploadedProductImages ?? []) as string[];
+
+    if (!uploaded.length) {
+      return next(new AppError("Please upload one or more images (field: images)", 400));
+    }
+
+    const product = await prisma.products.findUnique({
+      where: { product_id: productId },
+    });
+
+    if (!product) {
+      return next(new AppError("Product not found", 404));
+    }
+
+    const mode = typeof req.query.mode === "string" ? req.query.mode : "append";
+    const existingImages = Array.isArray((product as any).images)
+      ? ((product as any).images as string[])
+      : [];
+    const nextImages =
+      mode === "replace" ? uploaded : [...existingImages, ...uploaded];
+
+    const updated = await prisma.products.update({
+      where: { product_id: productId },
+      data: {
+        ...( { images: nextImages } as any ),
+        image: product.image ?? nextImages[0] ?? null,
+      } as any,
+      include: productCategoryInclude,
+    });
+
+    await redis.del(getProductKey(productId));
+    await clearProductCache();
+
+    res.status(200).json({
+      status: "success",
+      data: {
+        product: updated,
+      },
     });
   },
 );
