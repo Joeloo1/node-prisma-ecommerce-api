@@ -17,6 +17,6 @@ const router = express.Router();
 
 router.route("/").post(validateBody(createCategorySchema), createCategory);
 
-router.route("/:d").delete(validateParams(categoryIdSchema), deleteCategory);
+router.route("/:id").delete(validateParams(categoryIdSchema), deleteCategory);
 
 export default router;

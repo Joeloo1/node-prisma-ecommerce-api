@@ -63,7 +63,10 @@ export function buildOrderByClause(filters: ProductQueryInput) {
 }
 
 // Build SELECT clause for Prisma
-export function buildSelectClause(fields?: string) {
+export function buildSelectClause(
+  fields?: string,
+  opts?: { includeImages?: boolean },
+) {
   if (!fields) return undefined;
 
   const fieldArray = fields.split(",").map((f) => f.trim());
@@ -79,6 +82,14 @@ export function buildSelectClause(fields?: string) {
     const prismaField = fieldMap[field] ?? field;
     select[prismaField] = true;
   });
+
+  // Ensure core display fields are always returned (frontend expects them).
+  select.product_id = true;
+  select.name = true;
+  select.image = true;
+  if (opts?.includeImages) {
+    select.images = true;
+  }
 
   return select;
 }
