@@ -12,6 +12,7 @@ import { validateBody } from "../../middleware/validationMiddleware";
 import {
   signupSchema,
   loginSchema,
+  updateUserSchema,
 } from "../../Schema/userSchema";
 import { updateMe, getMe, deleteMe } from "../../controller/userController";
 import { uploadUserPhoto, resizeUserPhoto } from "../../middleware/uploadMiddleware";
@@ -31,6 +32,7 @@ router.use(Protect);
 
 router.patch(
   "/updateMyPassword",
+  validateBody(updateUserSchema),
   updatePassword
 );
 router.patch("/updateMe",

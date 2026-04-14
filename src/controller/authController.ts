@@ -17,13 +17,6 @@ import sendMail from "../utils/email";
 import logger from "../config/logger";
 import { Role } from "../types/role.types";
 import { JwtPayload } from "../types/auth.types";
-import { UserRole } from "@prisma/client";
-import { client as redis } from "../config/redis";
-
-const clearUsersListCache = async () => {
-  const keys = await redis.keys("users:list:*");
-  if (keys.length > 0) await redis.del(keys);
-};
 
 //  Signup User
 export const signup = catchAsync(
@@ -47,15 +40,10 @@ export const signup = catchAsync(
         email: user.email,
         password: user.password,
         phoneNumber: user.phoneNumber,
-        // Never trust role from client on signup.
-        roles: UserRole.USER,
+        roles: user.roles,
         profileImage: user.profileImage,
       },
     });
-
-    // New signup affects admin user listings cached by userController.
-    await clearUsersListCache();
-
     const token = signToken({ id: newUser.id });
 
     const sanitizedUser = {

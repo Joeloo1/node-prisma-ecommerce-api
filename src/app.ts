@@ -3,7 +3,6 @@ import morgan from "morgan";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import cors from "cors";
-import path from "path";
 
 import productRoutes from "./Routes/User/productRoutes";
 import categoryRoutes from "./Routes/User/categoriesRoutes";
@@ -19,17 +18,11 @@ import AppError from "./utils/AppError";
 import { globalErrorHandler } from "./Error/globalErrorHandler";
 
 const app = express();
-app.set("trust proxy", 1);
 
 const corsOrigins = process.env.CORS_ORIGIN?.split(",").map((o) => o.trim()).filter(Boolean);
 app.use(
   cors({
-    origin:
-      process.env.NODE_ENV === "production"
-        ? corsOrigins && corsOrigins.length > 0
-          ? corsOrigins
-          : false
-        : true,
+    origin: corsOrigins && corsOrigins.length > 0 ? corsOrigins : true,
     credentials: true,
   }),
 );
@@ -39,7 +32,6 @@ app.use(helmet());
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use("/public", express.static(path.join(__dirname, "../public")));
 
 // Development logging
 console.log(process.env.NODE_ENV);
@@ -56,10 +48,6 @@ const Limiter = rateLimit({
     logger.warn("Rate limit exceeded", {
       ip: req.ip,
       path: req.path,
-    });
-    res.status(429).json({
-      status: "fail",
-      message: "To many request from this IP, Please try again in an hour",
     });
   },
 });

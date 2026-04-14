@@ -17,6 +17,7 @@ export const signupSchema = z
       .min(8, { message: "Password must be at least 8 characters long" })
       .trim(),
     passwordConfirm: z.string(),
+    roles: z.enum(["USER", "ADMIN"]).default("USER"),
     phoneNumber: z
       .string()
       .min(10, { message: "Phone number must be at least 10 characters long" })

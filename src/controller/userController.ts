@@ -112,9 +112,6 @@ export const deleteMe = catchAsync(
   },
 );
 
-/*
- * FOR THE ADMIN TO MANAGE THE USERS
- */
 // get all the user
 export const getAllUsers = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
@@ -123,14 +120,12 @@ export const getAllUsers = catchAsync(
     // check redis
     const cachedUsers = await redis.get(cacheKey);
     if (cachedUsers) {
-      const parsed = JSON.parse(cachedUsers);
-      const users = Array.isArray(parsed) ? parsed : [];
       logger.info(`Serving user from cache`);
       return res.status(200).json({
         status: "success",
         source: "cache",
-        results: users.length,
-        data: { users },
+        results: JSON.parse(cachedUsers).length,
+        data: { users: JSON.parse(cachedUsers) },
       });
     }
 
@@ -153,16 +148,17 @@ export const getAllUsers = catchAsync(
 // get user
 export const getUser = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
-    const cacheKey = getUserKey(req.params.id);
+    const cacheKey = getUserQueryKey(req.query);
 
     // check redis
-    const cachedUser = await redis.get(cacheKey);
-    if (cachedUser) {
+    const cachedUsers = await redis.get(cacheKey);
+    if (cachedUsers) {
       logger.info(`Serving user from cache`);
       return res.status(200).json({
         status: "success",
         source: "cache",
-        data: { user: JSON.parse(cachedUser) },
+        results: JSON.parse(cachedUsers).length,
+        data: { users: JSON.parse(cachedUsers) },
       });
     }
 
@@ -229,14 +225,13 @@ export const deleteUser = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.params.id;
     logger.info(
-      `Admin deleting user with ID: ${req.params.id} from the database`,
+      `Admin deleteing user with ID: ${req.params.id} from the database`,
     );
     await prisma.user.delete({
       where: { id: userId },
     });
 
     await redis.del(getUserKey(userId));
-    await clearUserCache();
 
     logger.info(`User with ID: ${req.params.id} deleted successfully`);
     res.status(204).json({
