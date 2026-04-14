@@ -1,3 +1,4 @@
+import fs from "fs";
 import path from "path";
 import multer, { FileFilterCallback } from "multer";
 import sharp from "sharp";
@@ -33,6 +34,9 @@ const upload = multer({
 // middleware to upload single file
 export const uploadUserPhoto = upload.single("profileImage");
 
+// middleware to upload multiple product images
+export const uploadProductImages = upload.array("images", 10);
+
 // resize image
 export const resizeUserPhoto = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
@@ -48,6 +52,7 @@ export const resizeUserPhoto = catchAsync(
     const filename = `user-${req.user.id}-${Date.now()}.jpeg`;
     const uploadDir = path.join(__dirname, "../../public/users");
     const filepath = path.join(uploadDir, filename);
+    fs.mkdirSync(uploadDir, { recursive: true });
 
     // Resize and save image
     await sharp(req.file.buffer)
@@ -58,6 +63,37 @@ export const resizeUserPhoto = catchAsync(
 
     req.file.filename = filename;
 
+    next();
+  },
+);
+
+export const resizeProductImages = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const files = (req.files ?? []) as Express.Multer.File[];
+    if (!files.length) return next();
+
+    const productId = req.params.id;
+    if (!productId) return next(new AppError("Product id is required", 400));
+
+    const uploadDir = path.join(__dirname, "../../public/products");
+    fs.mkdirSync(uploadDir, { recursive: true });
+
+    const savedPaths: string[] = [];
+
+    await Promise.all(
+      files.map(async (file, idx) => {
+        const filename = `product-${productId}-${Date.now()}-${idx + 1}.jpeg`;
+        const filepath = path.join(uploadDir, filename);
+        await sharp(file.buffer)
+          .resize(1400, 1400, { fit: "inside", withoutEnlargement: true })
+          .toFormat("jpeg")
+          .jpeg({ quality: 88 })
+          .toFile(filepath);
+        savedPaths.push(`/public/products/${filename}`);
+      }),
+    );
+
+    (req as any).uploadedProductImages = savedPaths;
     next();
   },
 );

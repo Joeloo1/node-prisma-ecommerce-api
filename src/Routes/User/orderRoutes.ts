@@ -18,7 +18,8 @@ router.route("/").get(getMyOrder).post(createOrder);
 router
   .route("/:id")
   .get(getOrderById)
-  .patch(cancelOrder)
-  .patch(restrictTo(Role.ADMIN), updateOrder);
+  .patch(cancelOrder);
+
+router.patch("/:id/admin", restrictTo(Role.ADMIN), updateOrder);
 
 export default router;

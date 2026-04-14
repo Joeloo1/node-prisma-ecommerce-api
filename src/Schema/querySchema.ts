@@ -23,6 +23,9 @@ export const productQuerySchema = z.object({
 
   // Field selection (optional)
   fields: z.string().optional(),
+
+  // Include gallery images in list response (default false for lighter payloads)
+  includeImages: z.coerce.boolean().optional().default(false),
 });
 
 export type ProductQueryInput = z.infer<typeof productQuerySchema>;

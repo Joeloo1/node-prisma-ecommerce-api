@@ -2,6 +2,7 @@ import express from "express";
 
 import {
   createProduct,
+  addProductImages,
   deleteProduct,
   updateProduct,
 } from "../../controller/productController";
@@ -14,10 +15,19 @@ import {
   productIdSchema,
   updateProductSchema,
 } from "../../Schema/productSchema";
+import { uploadProductImages, resizeProductImages } from "../../middleware/uploadMiddleware";
 
 const router = express.Router();
 
 router.route("/").post(validateBody(createProductSchema), createProduct);
+
+router.post(
+  "/:id/images",
+  validateParams(productIdSchema),
+  uploadProductImages,
+  resizeProductImages,
+  addProductImages,
+);
 
 router
   .route("/:id")
