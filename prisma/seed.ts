@@ -134,6 +134,14 @@ function slug(s: string) {
     .slice(0, 40);
 }
 
+function picsum(seed: string, w: number, h: number) {
+  return `https://picsum.photos/seed/${encodeURIComponent(seed)}/${w}/${h}`;
+}
+
+function gallerySeeds(baseSeed: string, count: number) {
+  return Array.from({ length: count }, (_, i) => `${baseSeed}-img-${i + 1}`);
+}
+
 async function clearCatalog() {
   console.log("Removing existing catalog data (orders, reviews, cart lines, products, categories)…");
   await prisma.review.deleteMany();
@@ -183,52 +191,32 @@ async function main() {
     const blueprints = PRODUCT_BLUEPRINTS[catName];
 
     for (const bp of blueprints) {
-      const seed = slug(`${catName}-${bp.name}`);
-      const image = `https://picsum.photos/seed/${seed}/800/600`;
+      const seed = slug(`${catName}-${bp.brand}-${bp.name}`);
+      const images = gallerySeeds(seed, 5).map((s) => picsum(s, 1200, 900));
+      const image = images[0]!;
       const rating = Math.round((3.6 + Math.random() * 1.4) * 10) / 10;
       const description = `${bp.brand} — ${bp.name}. Quality pick in ${catName}. Ships from our demo catalog.`;
 
+      // Backward compatible: Prisma client types won't include `images` until after migrate + generate.
+      const data: any = {
+        name: bp.name,
+        description,
+        price: Math.round(bp.basePrice * 100) / 100,
+        unit: bp.unit,
+        image,
+        discount: bp.discount ?? null,
+        availability: Math.random() > 0.05,
+        brand: bp.brand,
+        rating,
+        category_id,
+      };
+      data.images = images;
+
       await prisma.products.create({
-        data: {
-          name: bp.name,
-          description,
-          price: Math.round(bp.basePrice * 100) / 100,
-          unit: bp.unit,
-          image,
-          discount: bp.discount ?? null,
-          availability: Math.random() > 0.05,
-          brand: bp.brand,
-          rating,
-          category_id,
-        },
+        data,
       });
       created++;
     }
-  }
-
-  // Extra bulk items so grids feel full (varied duplicates in naming with suffix)
-  const extraCategoryIds = [...categoryMap.values()];
-  const adjectives = ["Pro", "Lite", "Plus", "Max", "Mini", "Eco", "Studio", "Travel"];
-  for (let i = 0; i < 35; i++) {
-    const category_id = extraCategoryIds[i % extraCategoryIds.length]!;
-    const adj = adjectives[i % adjectives.length]!;
-    const name = `Demo SKU ${adj} #${String(i + 1).padStart(3, "0")}`;
-    const seed = `demo-${i}-${category_id}`;
-    await prisma.products.create({
-      data: {
-        name,
-        description: `Bulk demo product for UI testing. Category id ${category_id}.`,
-        price: Math.round((9.99 + Math.random() * 190) * 100) / 100,
-        unit: "each",
-        image: `https://picsum.photos/seed/${seed}/800/600`,
-        discount: i % 4 === 0 ? Math.round(5 + Math.random() * 20) : null,
-        availability: true,
-        brand: "DemoBrand",
-        rating: Math.round((3.5 + Math.random() * 1.5) * 10) / 10,
-        category_id,
-      },
-    });
-    created++;
   }
 
   console.log(`Done. Created ${created} products in ${CATEGORY_NAMES.length} categories.`);
