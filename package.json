@@ -12,6 +12,9 @@
     "docker:up": "npm --prefix backend run docker:up",
     "docker:down": "npm --prefix backend run docker:down"
   },
+  "dependencies": {
+    "@remix-run/dev": "^2.17.4"
+  },
   "devDependencies": {
     "concurrently": "^8.2.2"
   }
