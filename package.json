@@ -1,0 +1,17 @@
+{
+  "name": "node-prisma-ecommerce-api",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install && npm --prefix backend install && npm --prefix frontend install",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build": "npm --prefix backend run build && npm --prefix frontend run build",
+    "docker:up": "npm --prefix backend run docker:up",
+    "docker:down": "npm --prefix backend run docker:down"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
